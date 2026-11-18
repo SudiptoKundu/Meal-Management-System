@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>StudentForm</title>
+        <!-- <link rel="stylesheet" href="style2.css"> -->
+        
+    </head>
+    <body>
+        <h2>Student Registration Form</h2>
+        <form id="StudentForm">
+
+            <fieldset>
+                <legend>Student Info</legend>
+
+                <div>
+                    <label for="fullName">Full Name: </label>
+                    <input type="text" id="fullName" class="fullName" placeholder="Enter Your Full Name">
+                    <span id="nameError"></span>
+                </div>
+
+                <br>
+
+                <div>
+                    <label for="email">Email: </label>
+                    <input type="text" id="email" class="email" placeholder="Enter Your email">
+                    <span id="emailError"></span>
+                </div>
+                <br>
+
+                <div>
+                    <label for="age">Age: </label>
+                    <input type="number" id="age" class="age" placeholder="Enter age" max="1000" min="0">
+                    <span id="ageError"></span>
+                </div>
+                <br>
+
+                <div>
+                    <label for="gender">Gender: </label>
+                    <input type="radio"  name="gender" value="male">Male
+                    <input type="radio"  name="gender" value="female">Female
+
+                    <span id="genderError"></span>
+                </div>
+                <br>
+
+                <div>
+                    <label for="dept">Department: </label>
+                    <select name="department" id="department">
+                        <option value="cse">CSE</option>
+                        <option value="bba">BBA</option>
+                        <option value="eee">EEE</option>
+
+                    </select>
+                    <span id="deptError"></span>
+                </div>
+                <br>
+
+                <div>
+                    <input type="checkbox" id="terms" class="terms" >I agree to terms
+                    <span id="termsError"></span>
+                </div>
+                <br><br>
+
+
+                <button type="submit">Submit</button>
+
+
+            </fieldset>
+        </form>
+
+        <form action="https://httpbin.org/get" method="get">
+ Name:
+ <input type="text" id="n" name="username" placeholder="Your name" required><br><br>
+ Password: <input type="password" name="pass"><br><br>
+ Gender:
+ <input type="radio" name="gender" value="male"> Male
+ <input type="radio" name="gender" value="female"> Female<br><br>
+ Hobbies:
+ <input type="checkbox" name="hobby" value="reading"> Reading
+ <input type="checkbox" name="hobby" value="sports"> Sports<br><br>
+ Country:
+ <select name="country"><option value="bd">Bangladesh</option><option
+value="in">India</option></select><br><br>
+ <textarea name="msg" rows="3" cols="30">Write here</textarea><br><br>
+ <input type="submit" value="Send"> <input type="reset">
+</form>
+
+        <script src="exam.js"></script>
+        
+
+    </body>
+</html>
