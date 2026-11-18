@@ -1,0 +1,514 @@
+// ===================================================================
+//  admin.js  -  every page the ADMIN can see, plus the admin buttons
+// ===================================================================
+ 
+// ---------- Summary: one short table for the whole month ----------
+function adminSummaryPage() {
+  const result = calculateMonth();
+  let rows = "";
+ 
+  db.users.forEach(function (user) {
+    const p = result.people[user.id];
+    rows += `<tr>
+      <td>${escapeHtml(user.name)}</td>
+      <td>${p.lunches + p.dinners}</td>
+      <td>${p.guests}</td>
+      <td>${p.eggs}</td>
+      <td>${money(p.cost)}</td>
+      <td>${money(p.paid)}</td>
+      <td>${balanceText(p.balance)}</td>
+    </tr>`;
+  });
+ 
+  return `
+    <h2>Summary</h2>
+    ${monthPicker()}
+    <div class="grid">
+      ${statCard(money(result.bazarTotal), "Total bazar cost")}
+      ${statCard(result.totalMeals, "Total meals")}
+      ${statCard(money2(result.rate), "Per meal rate")}
+    </div>
+    <div class="card table-wrap">
+      <table>
+        <tr><th>Member</th><th>Meals</th><th>Guest</th><th>Eggs</th><th>Cost</th><th>Payment</th><th>Back</th></tr>
+        ${rows || "<tr><td>No members</td></tr>"}
+      </table>
+    </div>
+    <p class="muted">Rate = (bazar cost - egg cost) / total meals. Everyone pays the same rate per meal.</p>`;
+}
+ 
+// ---------- Members: full details for every member ----------
+function adminMembersPage() {
+  const result = calculateMonth();
+  const total = { lunches: 0, dinners: 0, guests: 0, meals: 0, eggs: 0, cost: 0, paid: 0, pending: 0, balance: 0 };
+  let rows = "";
+ 
+  db.users.forEach(function (user) {
+    const p = result.people[user.id];
+    for (const field in total) total[field] += p[field];      // add to the Total row
+ 
+    rows += `<tr>
+      <td>${escapeHtml(user.name)}</td>
+      <td>${p.lunches}</td>
+      <td>${p.dinners}</td>
+      <td>${p.guests}</td>
+      <td><b>${p.meals}</b></td>
+      <td>${p.eggs}</td>
+      <td>${money(p.cost)}</td>
+      <td>${money(p.paid)}</td>
+      <td>${p.pending ? money(p.pending) : "-"}</td>
+      <td>${balanceText(p.balance)}</td>
+    </tr>`;
+  });
+ 
+  return `
+    <h2>Members</h2>
+    ${monthPicker()}
+    <div class="grid">
+      ${statCard(money2(result.rate), "Per meal rate")}
+      ${statCard(total.meals, "Total meals")}
+      ${statCard(total.eggs, "Total eggs")}
+    </div>
+    <div class="card table-wrap">
+      <table>
+        <tr>
+          <th>Member</th><th>Lunch</th><th>Dinner</th><th>Guest</th><th>Total meals</th>
+          <th>Eggs</th><th>Cost</th><th>Paid</th><th>Pending</th><th>Remaining balance</th>
+        </tr>
+        ${rows || "<tr><td>No members</td></tr>"}
+        <tr>
+          <th>Total</th><th>${total.lunches}</th><th>${total.dinners}</th><th>${total.guests}</th><th>${total.meals}</th>
+          <th>${total.eggs}</th><th>${money(total.cost)}</th><th>${money(total.paid)}</th>
+          <th>${money(total.pending)}</th><th>${balanceText(total.balance)}</th>
+        </tr>
+      </table>
+    </div>
+    <p class="muted">Cost = total meals x rate + eggs. Paid counts approved payments only. Balance = Paid - Cost.</p>`;
+}
+ 
+// ---------- Menu: the admin types lunch and dinner for each date ----------
+function adminMenuPage() {
+  let rows = "";
+ 
+  getDaysOfMonth().forEach(function (date) {
+    const menu = db.menu[date] || {};
+    rows += `<tr>
+      <td>${formatDate(date)}</td>
+      <td><input placeholder="Lunch"  value="${escapeHtml(menu.lunch || "")}"  onchange="saveMenu('${date}', 'lunch', this.value)"></td>
+      <td><input placeholder="Dinner" value="${escapeHtml(menu.dinner || "")}" onchange="saveMenu('${date}', 'dinner', this.value)"></td>
+    </tr>`;
+  });
+ 
+  return `
+    <h2>Menu</h2>
+    ${monthPicker()}
+    <p class="muted">Type what is served. Members see this on their pages.</p>
+    <div class="card table-wrap">
+      <table><tr><th>Date</th><th>Lunch</th><th>Dinner</th></tr>${rows}</table>
+    </div>`;
+}
+ 
+function saveMenu(date, field, text) {          // field: "lunch" or "dinner"
+  if (!db.menu[date]) db.menu[date] = {};
+  db.menu[date][field] = text.trim();
+  saveData();
+  showMessage("Menu saved");
+}
+ 
+// ---------- Daily: how many meals were added each day ----------
+function adminDailyPage() {
+  const days = getDaysOfMonth();
+  if (!days.includes(selectedDay)) selectedDay = TODAY.startsWith(month) ? TODAY : days[0];
+ 
+  const sum = { lunch: 0, dinner: 0, guests: 0 };
+  let dayRows = "";
+ 
+  days.forEach(function (date) {
+    const day = { lunch: 0, dinner: 0, guests: 0 };
+    db.users.forEach(function (user) {
+      const entry = getMealEntry(date, user.id);
+      day.lunch += entry.lunch;
+      day.dinner += entry.dinner;
+      day.guests += entry.guests;
+    });
+    sum.lunch += day.lunch;
+    sum.dinner += day.dinner;
+    sum.guests += day.guests;
+ 
+    const highlight = date === selectedDay ? "background:var(--bg); font-weight:700;" : "";
+    dayRows += `<tr style="cursor:pointer; ${highlight}" onclick="chooseDay('${date}')">
+      <td>${formatDate(date)}</td><td>${day.lunch}</td><td>${day.dinner}</td><td>${day.guests}</td>
+      <td>${day.lunch + day.dinner + day.guests}</td>
+    </tr>`;
+  });
+ 
+  // the people on the chosen day
+  let memberRows = "";
+  db.users.forEach(function (user) {
+    const entry = getMealEntry(selectedDay, user.id);
+    memberRows += `<tr>
+      <td>${escapeHtml(user.name)}</td>
+      <td><input type="checkbox" ${entry.lunch ? "checked" : ""} onchange="adminSetMeal('${selectedDay}', ${user.id}, 'lunch', this.checked ? 1 : 0)"></td>
+      <td><input type="checkbox" ${entry.dinner ? "checked" : ""} onchange="adminSetMeal('${selectedDay}', ${user.id}, 'dinner', this.checked ? 1 : 0)"></td>
+      <td><input type="number" min="0" value="${entry.guests}" style="width:70px" onchange="adminSetMeal('${selectedDay}', ${user.id}, 'guests', Math.max(0, +this.value || 0))"></td>
+    </tr>`;
+  });
+ 
+  return `
+    <h2>Daily Meals</h2>
+    ${monthPicker()}
+    <p class="muted">Tap a date to see who added meals. Only the admin can remove a selection.</p>
+    <div class="card table-wrap">
+      <table>
+        <tr><th>Date</th><th>Lunch</th><th>Dinner</th><th>Guest</th><th>Total</th></tr>
+        ${dayRows}
+        <tr><th>Month</th><th>${sum.lunch}</th><th>${sum.dinner}</th><th>${sum.guests}</th><th>${sum.lunch + sum.dinner + sum.guests}</th></tr>
+      </table>
+    </div>
+    <div class="card table-wrap">
+      <h3 style="margin-top:0">${formatDate(selectedDay)}</h3>
+      <table>
+        <tr><th>Member</th><th>Lunch</th><th>Dinner</th><th>Guest</th></tr>
+        ${memberRows || "<tr><td>No members</td></tr>"}
+      </table>
+    </div>`;
+}
+ 
+function chooseDay(date) {
+  selectedDay = date;
+  showPage(currentPage);
+}
+ 
+function adminSetMeal(date, userId, field, value) {
+  setMeal(date, userId, field, value);
+  showPage(currentPage);
+}
+ 
+// ---------- Meal Sheet: a grid like the Google Sheet ----------
+function adminSheetPage() {
+  if (db.users.length === 0) return `<h2>Meal Sheet</h2><div class="card muted">No members yet.</div>`;
+ 
+  let headings = "";      // top row of the main grid
+  let guestHeadings = ""; // top row of the guest grid
+  db.users.forEach(function (user) {
+    const name = escapeHtml(user.name);
+    headings += `<th>${name} (D)</th><th>${name} (N)</th>`;
+    guestHeadings += `<th>${name}</th>`;
+  });
+ 
+  let mealRows = "";
+  let guestRows = "";
+  getDaysOfMonth().forEach(function (date) {
+    mealRows += `<tr><td>${formatDate(date)}</td>`;
+    guestRows += `<tr><td>${formatDate(date)}</td>`;
+    db.users.forEach(function (user) {
+      const entry = getMealEntry(date, user.id);
+      mealRows += `
+        <td><input type="checkbox" ${entry.lunch ? "checked" : ""} onchange="sheetSetMeal('${date}', ${user.id}, 'lunch', this.checked ? 1 : 0)"></td>
+        <td><input type="checkbox" ${entry.dinner ? "checked" : ""} onchange="sheetSetMeal('${date}', ${user.id}, 'dinner', this.checked ? 1 : 0)"></td>`;
+      guestRows += `
+        <td><input type="number" min="0" value="${entry.guests}" style="width:64px" onchange="sheetSetMeal('${date}', ${user.id}, 'guests', Math.max(0, +this.value || 0))"></td>`;
+    });
+    mealRows += `</tr>`;
+    guestRows += `</tr>`;
+  });
+ 
+  return `
+    <h2>Meal Sheet</h2>
+    ${monthPicker()}
+    <p class="muted">Tick or untick any member's meal. D = Day (lunch), N = Night (dinner).</p>
+    <div class="card table-wrap">
+      <table class="no-wrap">
+        <tr><th>Date</th>${headings}</tr>
+        ${mealRows}
+        <tr id="sheetTotals">${sheetTotalsHtml()}</tr>
+      </table>
+    </div>
+    <h3>Guest Meal</h3>
+    <div class="card table-wrap">
+      <table class="no-wrap">
+        <tr><th>Date</th>${guestHeadings}</tr>
+        ${guestRows}
+        <tr id="guestTotals">${guestTotalsHtml()}</tr>
+      </table>
+    </div>`;
+}
+ 
+// Totals rows. They are rebuilt after every tick, so the page does not reload.
+function sheetTotalsHtml() {
+  const result = calculateMonth();
+  let html = "<th>Total</th>";
+  db.users.forEach(function (user) {
+    html += `<th>${result.people[user.id].lunches}</th><th>${result.people[user.id].dinners}</th>`;
+  });
+  return html;
+}
+ 
+function guestTotalsHtml() {
+  const result = calculateMonth();
+  let html = "<th>Total</th>";
+  db.users.forEach(function (user) {
+    html += `<th>${result.people[user.id].guests}</th>`;
+  });
+  return html;
+}
+ 
+function sheetSetMeal(date, userId, field, value) {
+  setMeal(date, userId, field, value);
+  $("#sheetTotals").innerHTML = sheetTotalsHtml();
+  $("#guestTotals").innerHTML = guestTotalsHtml();
+}
+ 
+// ---------- Bazar: daily market costs ----------
+function adminBazarPage() {
+  const defaultDate = TODAY.startsWith(month) ? TODAY : month + "-01";
+  const list = db.bazar
+    .filter(function (b) { return b.date.startsWith(month); })
+    .sort(function (a, b) { return a.date < b.date ? 1 : -1; });
+ 
+  let rows = "";
+  let total = 0;
+  list.forEach(function (b) {
+    total += b.cost;
+    rows += `<tr>
+      <td>${formatDate(b.date)}</td>
+      <td>${escapeHtml(b.note)}</td>
+      <td>${money(b.cost)}</td>
+      <td><button class="danger" onclick="deleteBazar(${b.id})">Delete</button></td>
+    </tr>`;
+  });
+ 
+  return `
+    <h2>Bazar (market cost)</h2>
+    ${monthPicker()}
+    <div class="card">
+      <div class="row">
+        <input id="bazarDate" type="date" value="${defaultDate}">
+        <input id="bazarCost" type="number" min="0" placeholder="Cost" style="width:110px">
+        <input id="bazarNote" placeholder="Note (optional)">
+        <button class="primary" onclick="addBazar()">Add</button>
+      </div>
+    </div>
+    <div class="card table-wrap">
+      <table>
+        <tr><th>Date</th><th>Note</th><th>Cost</th><th></th></tr>
+        ${rows || "<tr><td>No entries</td></tr>"}
+        <tr><th colspan="2">Total</th><th>${money(total)}</th><th></th></tr>
+      </table>
+    </div>`;
+}
+ 
+function addBazar() {
+  const date = readInput("bazarDate");
+  const cost = Number(readInput("bazarCost"));
+  if (!date || !(cost > 0)) return showMessage("Enter a date and a cost");
+ 
+  db.bazar.push({ id: newId(), date: date, cost: cost, note: readInput("bazarNote").trim() });
+  saveData();
+  showPage(currentPage);
+}
+ 
+function deleteBazar(id) {
+  db.bazar = db.bazar.filter(function (b) { return b.id !== id; });
+  saveData();
+  showPage(currentPage);
+}
+ 
+// ---------- Payments: approve what users send, or add one by hand ----------
+function adminPaymentsPage() {
+  const pending = db.payments.filter(function (x) { return x.status === "pending"; });
+  const thisMonth = db.payments.filter(function (x) { return x.month === month; }).reverse();
+ 
+  let pendingCard = "";
+  if (pending.length > 0) {
+    let pendingRows = "";
+    pending.forEach(function (x) {
+      pendingRows += `<tr>
+        <td>${formatDate(x.date)}</td>
+        <td>${escapeHtml(getUserName(x.userId))}</td>
+        <td>${x.month}</td>
+        <td>${x.method}</td>
+        <td>${money(x.amount)}</td>
+        <td>
+          <button class="primary" onclick="decidePayment(${x.id}, 'approved')">Approve</button>
+          <button class="danger" onclick="decidePayment(${x.id}, 'rejected')">Reject</button>
+        </td>
+      </tr>`;
+    });
+    pendingCard = `
+      <div class="card table-wrap">
+        <h3 style="margin-top:0">Pending approval (${pending.length})</h3>
+        <table>
+          <tr><th>Date</th><th>Member</th><th>Month</th><th>Method</th><th>Amount</th><th></th></tr>
+          ${pendingRows}
+        </table>
+      </div>`;
+  }
+ 
+  let userOptions = "";
+  db.users.forEach(function (user) {
+    userOptions += `<option value="${user.id}">${escapeHtml(user.name)}</option>`;
+  });
+ 
+  let rows = "";
+  thisMonth.forEach(function (x) {
+    rows += `<tr>
+      <td>${formatDate(x.date)}</td>
+      <td>${escapeHtml(getUserName(x.userId))}</td>
+      <td>${x.method}</td>
+      <td>${money(x.amount)}</td>
+      <td>${statusBadge(x)}</td>
+      <td><button class="danger" onclick="deletePayment(${x.id})">Delete</button></td>
+    </tr>`;
+  });
+ 
+  return `
+    <h2>Payments</h2>
+    ${monthPicker()}
+    ${pendingCard}
+    <div class="card">
+      <div class="row">
+        <select id="payUser">${userOptions}</select>
+        <input id="payAmount" type="number" min="1" placeholder="Amount" style="width:110px">
+        <select id="payMethod"><option>Cash</option><option>bKash</option><option>Nagad</option><option>Card</option></select>
+        <button class="primary" onclick="addPaymentByAdmin()">Add payment</button>
+      </div>
+    </div>
+    <div class="card table-wrap">
+      <table>
+        <tr><th>Date</th><th>Member</th><th>Method</th><th>Amount</th><th>Status</th><th></th></tr>
+        ${rows || "<tr><td>No payments</td></tr>"}
+      </table>
+    </div>`;
+}
+ 
+function decidePayment(id, status) {          // status: "approved" or "rejected"
+  const payment = db.payments.find(function (x) { return x.id === id; });
+  payment.status = status;
+  saveData();
+  showMessage(status === "approved" ? "Payment approved" : "Payment rejected");
+  showPage(currentPage);
+}
+ 
+function addPaymentByAdmin() {
+  const amount = Number(readInput("payAmount"));
+  if (db.users.length === 0 || !(amount > 0)) return showMessage("Choose a member and an amount");
+ 
+  db.payments.push({
+    id: newId(), userId: Number(readInput("payUser")), month: month, date: TODAY,
+    amount: amount, method: readInput("payMethod"), status: "approved"
+  });
+  saveData();
+  showMessage("Payment added");
+  showPage(currentPage);
+}
+ 
+function deletePayment(id) {
+  db.payments = db.payments.filter(function (x) { return x.id !== id; });
+  saveData();
+  showPage(currentPage);
+}
+ 
+// ---------- Eggs: price per egg and how many each member took ----------
+function adminEggsPage() {
+  let rows = "";
+  db.users.forEach(function (user) {
+    rows += `<tr>
+      <td>${escapeHtml(user.name)}</td>
+      <td><input type="number" min="0" style="width:90px" value="${db.eggs[month + "|" + user.id] || 0}"
+                 onchange="saveEggs(${user.id}, Number(this.value) || 0)"></td>
+    </tr>`;
+  });
+ 
+  return `
+    <h2>Eggs</h2>
+    ${monthPicker()}
+    <div class="card">
+      <div class="row">
+        <b>Cost per egg (${CURRENCY}):</b>
+        <input type="number" min="0" style="width:100px" value="${db.eggPrice[month] || ""}"
+               onchange="saveEggPrice(Number(this.value) || 0)">
+      </div>
+    </div>
+    <div class="card table-wrap">
+      <table>
+        <tr><th>Member</th><th>Egg amount</th></tr>
+        ${rows || "<tr><td>No members</td></tr>"}
+      </table>
+    </div>`;
+}
+ 
+function saveEggs(userId, count) {
+  db.eggs[month + "|" + userId] = count;
+  saveData();
+  showMessage("Saved");
+}
+ 
+function saveEggPrice(price) {
+  db.eggPrice[month] = price;
+  saveData();
+  showMessage("Saved");
+}
+ 
+// ---------- Users: add, block and delete members ----------
+function adminUsersPage() {
+  let rows = "";
+  db.users.forEach(function (user) {
+    const status = user.blocked ? `<span class="badge bad">Blocked</span>` : `<span class="badge good">Active</span>`;
+    rows += `<tr>
+      <td>${escapeHtml(user.name)}</td>
+      <td>${escapeHtml(user.email)}</td>
+      <td>${status}</td>
+      <td>
+        <button onclick="toggleBlockUser(${user.id})">${user.blocked ? "Unblock" : "Block"}</button>
+        <button class="danger" onclick="deleteUser(${user.id})">Delete</button>
+      </td>
+    </tr>`;
+  });
+ 
+  return `
+    <h2>Users</h2>
+    <div class="card">
+      <div class="row">
+        <input id="newUserName" placeholder="Name">
+        <input id="newUserEmail" placeholder="Email" autocapitalize="off">
+        <input id="newUserPassword" placeholder="Password">
+        <button class="primary" onclick="addUser()">Add member</button>
+      </div>
+    </div>
+    <div class="card table-wrap">
+      <table>
+        <tr><th>Name</th><th>Email</th><th>Status</th><th></th></tr>
+        ${rows || "<tr><td>No members</td></tr>"}
+      </table>
+    </div>`;
+}
+ 
+function addUser() {
+  const name = readInput("newUserName").trim();
+  const email = readInput("newUserEmail").trim();
+  const password = readInput("newUserPassword").trim();
+  if (!name || !email || password.length < 4) return showMessage("Fill all fields (password min 4 characters)");
+ 
+  const emailTaken = db.users.some(function (u) { return u.email.toLowerCase() === email.toLowerCase(); });
+  if (emailTaken) return showMessage("Email already used");
+ 
+  db.users.push({ id: newId(), name: name, email: email, password: password, blocked: false });
+  saveData();
+  showPage(currentPage);
+}
+ 
+function toggleBlockUser(userId) {
+  const user = db.users.find(function (u) { return u.id === userId; });
+  user.blocked = !user.blocked;
+  saveData();
+  showPage(currentPage);
+}
+ 
+function deleteUser(userId) {
+  if (!confirm("Delete this member?")) return;
+  db.users = db.users.filter(function (u) { return u.id !== userId; });
+  saveData();
+  showPage(currentPage);
+}
+ 
