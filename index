@@ -1,92 +1,35 @@
 <!DOCTYPE html>
-<html>
-    <head>
-        <title>StudentForm</title>
-        <!-- <link rel="stylesheet" href="style2.css"> -->
-        
-    </head>
-    <body>
-        <h2>Student Registration Form</h2>
-        <form id="StudentForm">
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Meal Management</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
 
-            <fieldset>
-                <legend>Student Info</legend>
+  <!-- Login screen (filled in by auth.js) -->
+  <div id="login"></div>
 
-                <div>
-                    <label for="fullName">Full Name: </label>
-                    <input type="text" id="fullName" class="fullName" placeholder="Enter Your Full Name">
-                    <span id="nameError"></span>
-                </div>
+  <!-- Main screen after login (hidden until someone logs in) -->
+  <div id="shell" hidden>
+    <header>
+      <h1 id="title"></h1>
+      <span id="who" class="muted"></span>
+      <button id="logoutButton">Logout</button>
+    </header>
+    <nav id="nav"></nav>      <!-- menu buttons -->
+    <main id="app"></main>    <!-- the current page -->
+  </div>
 
-                <br>
+  <!-- Small popup message at the bottom -->
+  <div id="msg"></div>
 
-                <div>
-                    <label for="email">Email: </label>
-                    <input type="text" id="email" class="email" placeholder="Enter Your email">
-                    <span id="emailError"></span>
-                </div>
-                <br>
-
-                <div>
-                    <label for="age">Age: </label>
-                    <input type="number" id="age" class="age" placeholder="Enter age" max="1000" min="0">
-                    <span id="ageError"></span>
-                </div>
-                <br>
-
-                <div>
-                    <label for="gender">Gender: </label>
-                    <input type="radio"  name="gender" value="male">Male
-                    <input type="radio"  name="gender" value="female">Female
-
-                    <span id="genderError"></span>
-                </div>
-                <br>
-
-                <div>
-                    <label for="dept">Department: </label>
-                    <select name="department" id="department">
-                        <option value="cse">CSE</option>
-                        <option value="bba">BBA</option>
-                        <option value="eee">EEE</option>
-
-                    </select>
-                    <span id="deptError"></span>
-                </div>
-                <br>
-
-                <div>
-                    <input type="checkbox" id="terms" class="terms" >I agree to terms
-                    <span id="termsError"></span>
-                </div>
-                <br><br>
-
-
-                <button type="submit">Submit</button>
-
-
-            </fieldset>
-        </form>
-
-        <form action="https://httpbin.org/get" method="get">
- Name:
- <input type="text" id="n" name="username" placeholder="Your name" required><br><br>
- Password: <input type="password" name="pass"><br><br>
- Gender:
- <input type="radio" name="gender" value="male"> Male
- <input type="radio" name="gender" value="female"> Female<br><br>
- Hobbies:
- <input type="checkbox" name="hobby" value="reading"> Reading
- <input type="checkbox" name="hobby" value="sports"> Sports<br><br>
- Country:
- <select name="country"><option value="bd">Bangladesh</option><option
-value="in">India</option></select><br><br>
- <textarea name="msg" rows="3" cols="30">Write here</textarea><br><br>
- <input type="submit" value="Send"> <input type="reset">
-</form>
-
-        <script src="exam.js"></script>
-        
-
-    </body>
+  <!-- Order matters: data first, main last -->
+  <script src="data.js"></script>
+  <script src="auth.js"></script>
+  <script src="admin.js"></script>
+  <script src="user.js"></script>
+  <script src="main.js"></script>
+</body>
 </html>
